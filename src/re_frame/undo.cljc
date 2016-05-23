@@ -1,7 +1,7 @@
 (ns re-frame.undo
-  (:require-macros [reagent.ratom  :refer [reaction]])
+  #?(:cljs (:require-macros [reagent.ratom  :refer [reaction]]))
   (:require
-    [reagent.core        :as     reagent]
+    #?(:cljs [reagent.core        :as     reagent])
     [re-frame.utils      :refer  [warn]]
     [re-frame.db         :refer  [app-db]]
     [re-frame.handlers   :as     handlers]
@@ -17,8 +17,10 @@
   (reset! max-undos n))
 
 
-(def ^:private undo-list "A list of history states" (reagent/atom []))
-(def ^:private redo-list "A list of future states, caused by undoing" (reagent/atom []))
+(def ^:private undo-list "A list of history states" (#?(:cljs reagent/atom
+                                                        :clj atom) []))
+(def ^:private redo-list "A list of future states, caused by undoing" (#?(:cljs reagent/atom
+                                                                          :clj atom) []))
 
 ;; -- Explanations -----------------------------------------------------------
 ;;
@@ -26,9 +28,12 @@
 ;;
 ;; Seems really ugly to have mirrored vectors, but ...
 ;; the code kinda falls out when you do. I'm feeling lazy.
-(def ^:private app-explain "Mirrors app-db" (reagent/atom ""))
-(def ^:private undo-explain-list "Mirrors undo-list" (reagent/atom []))
-(def ^:private redo-explain-list "Mirrors redo-list" (reagent/atom []))
+(def ^:private app-explain "Mirrors app-db" (#?(:cljs reagent/atom
+                                                :clj atom) ""))
+(def ^:private undo-explain-list "Mirrors undo-list" (#?(:cljs reagent/atom
+                                                         :clj atom) []))
+(def ^:private redo-explain-list "Mirrors redo-list" (#?(:cljs reagent/atom
+                                                         :clj atom) []))
 
 (defn- clear-undos!
   []
@@ -81,7 +86,8 @@
 
 ;; -- subscriptions  -----------------------------------------------------------------------------
 
-(subs/register
+(comment
+  (subs/register
   :undos?
   (fn handler
     ; "return true if anything is stored in the undo list, otherwise false"
@@ -108,7 +114,7 @@
   (fn handler
     ; "returns a vector of string explanations ordered from most recent undo onward"
     [_ _]
-    (reaction (deref redo-explain-list))))
+    (reaction (deref redo-explain-list)))))
 
 ;; -- event handlers  ----------------------------------------------------------------------------
 
@@ -129,7 +135,7 @@
     (undo undo-explain-list app-explain redo-explain-list)
     (recur (dec n))))
 
-(handlers/register-base     ;; not a pure handler
+#_(handlers/register-base     ;; not a pure handler
   :undo                     ;; usage:  (dispatch [:undo n])  n is optional, defaults to 1
   (fn handler
     [_ [_ n]]
@@ -138,7 +144,7 @@
       (undo-n (or n 1)))))
 
 
-(defn- redo
+#_(defn- redo
   [undos cur redos]
   (let [u (conj @undos @cur)
         r  @redos]
@@ -146,7 +152,7 @@
     (reset! redos (rest r))
     (reset! undos u)))
 
-(defn- redo-n
+#_(defn- redo-n
   "redo n steps or until we run out of redos"
   [n]
   (when (and (pos? n) (redos?))
@@ -154,7 +160,7 @@
     (redo undo-explain-list app-explain redo-explain-list)
     (recur (dec n))))
 
-(handlers/register-base     ;; not a pure handler
+#_(handlers/register-base     ;; not a pure handler
   :redo                     ;; usage:  (dispatch [:redo n])
   (fn handler               ;; if n absent, defaults to 1
     [_ [_ n]]
@@ -163,11 +169,10 @@
       (redo-n (or n 1)))))
 
 
-(handlers/register-base     ;; not a pure handler
+#_(handlers/register-base     ;; not a pure handler
   :purge-redos              ;; usage:  (dispatch [:purge-redos])
   (fn handler
     [_ _]
     (if-not (redos?)
       (warn "re-frame: you did a (dispatch [:purge-redos]), but there is nothing to redo.")
       (clear-redos!))))
-
