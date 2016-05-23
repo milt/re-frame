@@ -48,3 +48,18 @@
   (if (vector? v)
     (first v)
     (error "re-frame: expected a vector event, but got: " v)))
+
+
+;; Mock reactions for clj
+
+(deftype ReactionMock [^clojure.lang.Fn f]
+  clojure.lang.IDeref
+  (deref [this]
+    (f)))
+
+(defn make-reaction-mock [f]
+  (ReactionMock. f))
+
+(defmacro reaction-mock [& body]
+  `(re-frame.utils/make-reaction-mock
+    (fn [] ~@body)))

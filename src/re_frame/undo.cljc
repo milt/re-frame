@@ -2,7 +2,7 @@
   #?(:cljs (:require-macros [reagent.ratom  :refer [reaction]]))
   (:require
     #?(:cljs [reagent.core        :as     reagent])
-    [re-frame.utils      :refer  [warn]]
+    [re-frame.utils      :refer  [warn #?(:clj reaction-mock)]]
     [re-frame.db         :refer  [app-db]]
     [re-frame.handlers   :as     handlers]
     [re-frame.subs       :as     subs]))
@@ -92,14 +92,16 @@
   (fn handler
     ; "return true if anything is stored in the undo list, otherwise false"
     [_ _]
-    (reaction (undos?))))
+    (#?(:cljs reaction
+        :clj reaction-mock) (undos?))))
 
 (subs/register
   :redos?
   (fn handler
     ; "return true if anything is stored in the redo list, otherwise false"
     [_ _]
-    (reaction (redos?))))
+    (#?(:cljs reaction
+        :clj reaction-mock) (redos?))))
 
 
 (subs/register
@@ -107,14 +109,16 @@
   (fn handler
     ; "return a vector of string explanations ordered oldest to most recent"
     [_ _]
-    (reaction (undo-explanations))))
+    (#?(:cljs reaction
+        :clj reaction-mock) (undo-explanations))))
 
 (subs/register
   :redo-explanations
   (fn handler
     ; "returns a vector of string explanations ordered from most recent undo onward"
     [_ _]
-    (reaction (deref redo-explain-list)))))
+    (#?(:cljs reaction
+        :clj reaction-mock) (deref redo-explain-list)))))
 
 ;; -- event handlers  ----------------------------------------------------------------------------
 
@@ -135,16 +139,16 @@
     (undo undo-explain-list app-explain redo-explain-list)
     (recur (dec n))))
 
-#_(handlers/register-base     ;; not a pure handler
-  :undo                     ;; usage:  (dispatch [:undo n])  n is optional, defaults to 1
-  (fn handler
-    [_ [_ n]]
-    (if-not (undos?)
-      (warn "re-frame: you did a (dispatch [:undo]), but there is nothing to undo.")
-      (undo-n (or n 1)))))
+(handlers/register-base     ;; not a pure handler
+ :undo                     ;; usage:  (dispatch [:undo n])  n is optional, defaults to 1
+ (fn handler
+   [_ [_ n]]
+   (if-not (undos?)
+     (warn "re-frame: you did a (dispatch [:undo]), but there is nothing to undo.")
+     (undo-n (or n 1)))))
 
 
-#_(defn- redo
+(defn- redo
   [undos cur redos]
   (let [u (conj @undos @cur)
         r  @redos]
@@ -152,7 +156,7 @@
     (reset! redos (rest r))
     (reset! undos u)))
 
-#_(defn- redo-n
+(defn- redo-n
   "redo n steps or until we run out of redos"
   [n]
   (when (and (pos? n) (redos?))
@@ -160,19 +164,19 @@
     (redo undo-explain-list app-explain redo-explain-list)
     (recur (dec n))))
 
-#_(handlers/register-base     ;; not a pure handler
-  :redo                     ;; usage:  (dispatch [:redo n])
-  (fn handler               ;; if n absent, defaults to 1
-    [_ [_ n]]
-    (if-not (redos?)
-      (warn "re-frame: you did a (dispatch [:redo]), but there is nothing to redo.")
-      (redo-n (or n 1)))))
+(handlers/register-base     ;; not a pure handler
+ :redo                     ;; usage:  (dispatch [:redo n])
+ (fn handler               ;; if n absent, defaults to 1
+   [_ [_ n]]
+   (if-not (redos?)
+     (warn "re-frame: you did a (dispatch [:redo]), but there is nothing to redo.")
+     (redo-n (or n 1)))))
 
 
-#_(handlers/register-base     ;; not a pure handler
-  :purge-redos              ;; usage:  (dispatch [:purge-redos])
-  (fn handler
-    [_ _]
-    (if-not (redos?)
-      (warn "re-frame: you did a (dispatch [:purge-redos]), but there is nothing to redo.")
-      (clear-redos!))))
+(handlers/register-base     ;; not a pure handler
+ :purge-redos              ;; usage:  (dispatch [:purge-redos])
+ (fn handler
+   [_ _]
+   (if-not (redos?)
+     (warn "re-frame: you did a (dispatch [:purge-redos]), but there is nothing to redo.")
+     (clear-redos!))))
