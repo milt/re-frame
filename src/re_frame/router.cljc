@@ -188,9 +188,9 @@
 
   (-exception
     [this ex]
-    (-init-queue this)
-    #_(set! queue #?(:cljs #queue []
-                   :clj (clojure.lang.PersistentQueue/EMPTY)))     ;; purge the queue
+    #?(:cljs (set! queue #queue []) ;; purge the queue
+       :clj (-init-queue this))
+
     (throw ex))
 
   (-pause
