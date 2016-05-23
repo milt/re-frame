@@ -1,6 +1,6 @@
 (ns re-frame.middleware
   (:require
-    [reagent.ratom  :refer [IReactiveAtom]]
+    #?(:cljs [reagent.ratom  :refer [IReactiveAtom]])
     [re-frame.undo  :refer [store-now!]]
     [re-frame.utils :refer [warn log group groupEnd error]]
     [clojure.data   :as data]))
@@ -23,18 +23,30 @@
   [handler]
   (fn pure-handler
     [app-db event-vec]
-    (if-not (satisfies? IReactiveAtom app-db)
-      (do
-        (if (map? app-db)
-          (warn "re-frame: Looks like \"pure\" is in the middleware pipeline twice. Ignoring.")
-          (warn "re-frame: \"pure\" middleware not given a Ratom.  Got: " app-db))
-        handler)    ;; turn this into a noop handler
-      (let [db      @app-db
-            new-db  (handler db event-vec)]
-        (if (nil? new-db)
-          (error "re-frame: your pure handler returned nil. It should return the new db state.")
-          (if-not (identical? db new-db)
-            (reset! app-db new-db)))))))
+    #?(:cljs (if-not (satisfies? IReactiveAtom app-db)
+               (do
+                 (if (map? app-db)
+                   (warn "re-frame: Looks like \"pure\" is in the middleware pipeline twice. Ignoring.")
+                   (warn "re-frame: \"pure\" middleware not given a Ratom.  Got: " app-db))
+                 handler)    ;; turn this into a noop handler
+               (let [db      @app-db
+                     new-db  (handler db event-vec)]
+                 (if (nil? new-db)
+                   (error "re-frame: your pure handler returned nil. It should return the new db state.")
+                   (if-not (identical? db new-db)
+                     (reset! app-db new-db)))))
+       :clj (if-not (instance? clojure.lang.Atom app-db)
+              (do
+                (if (map? app-db)
+                  (warn "re-frame: Looks like \"pure\" is in the middleware pipeline twice. Ignoring.")
+                  (warn "re-frame: \"pure\" middleware not given a Ratom.  Got: " app-db))
+                handler)    ;; turn this into a noop handler
+              (let [db      @app-db
+                    new-db  (handler db event-vec)]
+                (if (nil? new-db)
+                  (error "re-frame: your pure handler returned nil. It should return the new db state.")
+                  (if-not (identical? db new-db)
+                    (reset! app-db new-db))))))))
 
 
 

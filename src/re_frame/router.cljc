@@ -1,8 +1,8 @@
 (ns re-frame.router
-  (:require [reagent.core]
+  (:require #?@(:cljs [[reagent.core]
+                       [goog.async.nextTick]])
             [re-frame.handlers :refer [handle]]
-            [re-frame.utils :refer [error]]
-            [goog.async.nextTick]))
+            [re-frame.utils :refer [error]]))
 
 
 ;; -- Router Loop ------------------------------------------------------------
@@ -62,8 +62,10 @@
 
 ;; event metadata -> "run later" functions
 (def later-fns
-  {:flush-dom (fn [f] ((.-after-render reagent.core) #(goog.async.nextTick f)))   ;; one tick after the end of the next annimation frame
-   :yield     goog.async.nextTick})           ;; almost immediately
+  {:flush-dom #?(:cljs (fn [f] ((.-after-render reagent.core) #(goog.async.nextTick f)))    ;; a tick after the next annimation frame
+                 :clj (fn [f] (f)))
+   :yield     #?(:cljs goog.async.nextTick ;; almost immediately
+                 :clj (fn [f] (f)))})
 
 (defprotocol IEventQueue
   (enqueue [this event])
@@ -78,15 +80,19 @@
   (-process-1st-event [this])
   (-run-next-tick [this])
   (-run-queue [this])
+  (-init-queue [this])
   (-exception [this ex])
   (-pause [this later-fn])
   (-resume [this]))
 
 
 ;;
-(deftype EventQueue [^:mutable fsm-state
-                     ^:mutable queue
-                     ^:mutable post-event-callback-fns]
+(deftype EventQueue #?(:cljs [^:mutable fsm-state
+                              ^:mutable queue
+                              ^:mutable post-event-callback-fns]
+                       :clj [^:volatile-mutable fsm-state
+                             ^:volatile-mutable queue
+                             ^:volatile-mutable post-event-callback-fns])
   IEventQueue
 
   ;; -- API ------------------------------------------------------------------
@@ -149,7 +155,8 @@
     (let [event-v (peek queue)]
       (try
         (handle event-v)
-        (catch :default ex
+        (catch #?(:cljs :default
+                  :clj Exception) ex
           (-fsm-trigger this :exception ex)))
       (set! queue (pop queue))
 
@@ -159,7 +166,8 @@
 
   (-run-next-tick
     [this]
-    (goog.async.nextTick #(-fsm-trigger this :run-queue nil)))
+    #?(:cljs (goog.async.nextTick #(-fsm-trigger this :run-queue nil))
+       :clj (-fsm-trigger this :run-queue nil)))
 
   ;; Process all the events currently in the queue, but not any new ones.
   ;; Be aware that events might have metadata which will pause processing.
@@ -173,9 +181,16 @@
           (do (-process-1st-event this)
               (recur (dec n)))))))
 
+  (-init-queue
+      [this]
+    (set! queue #?(:cljs #queue []
+                   :clj (clojure.lang.PersistentQueue/EMPTY))))
+
   (-exception
-    [_ ex]
-    (set! queue #queue [])     ;; purge the queue
+    [this ex]
+    (-init-queue this)
+    #_(set! queue #?(:cljs #queue []
+                   :clj (clojure.lang.PersistentQueue/EMPTY)))     ;; purge the queue
     (throw ex))
 
   (-pause
@@ -193,7 +208,8 @@
 ;; When "dispatch" is called, the event is put into this queue.  Later the queue
 ;; will "run" and the event will be "handled" by the registered event handler.
 ;;
-(def event-queue (->EventQueue :idle  #queue [] []))
+(def event-queue (->EventQueue :idle  #?(:cljs #queue []
+                                         :clj (clojure.lang.PersistentQueue/EMPTY)) []))
 
 
 ;; ---------------------------------------------------------------------------
@@ -222,4 +238,3 @@
   [event-v]
   (handle event-v)
   nil)                                                      ;; Ensure nil return. See https://github.com/Day8/re-frame/wiki/Beware-Returning-False
-

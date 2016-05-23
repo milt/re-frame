@@ -1,6 +1,9 @@
 (ns re-frame.utils
   (:require
-    [clojure.set   :refer [difference]]))
+   [clojure.set   :refer [difference]]
+   #?(:cljs [taoensso.timbre :as timbre
+             :refer-macros true]
+      :clj [taoensso.timbre :as timbre])))
 
 
 ;; -- Logging -----------------------------------------------------------------
@@ -13,11 +16,13 @@
 ;; handled by overridding "error"
 ;;
 (def default-loggers
-  {:log       #(.log js/console %)
-   :warn      #(.warn js/console %)
-   :error     #(.error js/console %)
-   :group     #(if (.-groupCollapsed js/console) (.groupCollapsed js/console %) (.log js/console %))  ;; group does not exist  < IE 11
-   :groupEnd  #(when (.-groupEnd js/console) (.groupEnd js/console))})              ;; groupEnd does not exist  < IE 11
+  {:log       #(timbre/info %)
+   :warn      #(timbre/warn %)
+   :error     #(timbre/error %)
+   :group     #?(:clj #(timbre/info %)
+                 :cljs #(if (.-groupCollapsed js/console) (.groupCollapsed js/console %) (.log js/console %)))  ;; group does not exist  < IE 11
+   :groupEnd  #?(:clj #(timbre/info %)
+                 :cljs #(when (.-groupEnd js/console) (.groupEnd js/console)))})              ;; groupEnd does not exist  < IE 11
 
 ;; holds the current set of loggers.
 (def loggers (atom default-loggers))
@@ -43,4 +48,3 @@
   (if (vector? v)
     (first v)
     (error "re-frame: expected a vector event, but got: " v)))
-
