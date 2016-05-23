@@ -4,7 +4,8 @@
   :license      {:name "MIT"}
   :dependencies [[org.clojure/clojure        "1.7.0"]
                  [org.clojure/clojurescript  "1.7.170"]
-                 [reagent "0.5.1"]]
+                 [reagent "0.5.1"]
+                 [com.taoensso/timbre "4.3.1"]]
 
   :profiles {:debug {:debug true}
              :dev   {:dependencies [[karma-reporter "0.3.0"]]
